@@ -6,25 +6,25 @@ Provide language translation operations using Microsoft translator API with Go.
 package main
 
 import (
+    "os"
     "log"
     "fmt"
     "github.com/teitei-tk/malwiya"
 )
 
 func main() {
-    accessToken := "your AccessToken"
-    secret := "your secret"
-    m := malwiya.New(accessToken, serect)
+    subscriptionKey := os.Getenv("SUBSCRIPTION_KEY")
+    m := malwiya.New(subscriptionKey)
 
-    from := "en"
-    to := "ja"
-    text := "I love Golang♡"
-    result, err := m.Translate(text, from, to)
+    fromTextLang := "en"
+    toTextLang := "ja"
+    text := "I love gopher♡"
+    result, err := m.Translate(text, fromTextLang, toTextLang)
     if err != nil {
         log.Fatal(err)
     }
 
-    fmt.Println(result)
+    fmt.Println(result) // 私は gopher♡ が大好き
 }
 ```
 
