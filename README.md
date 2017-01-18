@@ -28,5 +28,10 @@ func main() {
 }
 ```
 
+## TODO
+* CI Configuration
+* Test code
+* Documents
+
 ## LICENSE
 MIT
