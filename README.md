@@ -1,5 +1,10 @@
 # malwiya
-Provide language translation operations using Microsoft translator API with Go.
+Provide language translation operations using Microsoft translator Text API with Go.
+
+# Installation
+```
+go get github.com/teitei-tk/malwiya
+```
 
 ## Usage
 ```go
@@ -34,4 +39,4 @@ func main() {
 * Documents
 
 ## LICENSE
-MIT
+Apache License, Version 2.0
