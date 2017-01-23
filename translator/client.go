@@ -49,6 +49,8 @@ func (c *Client) newRequest(ctx context.Context, v *url.Values, method, from, to
 	req.URL.RawQuery = v.Encode()
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.Token))
 	req.Header.Set("User-Agent", userAgent)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Accept", "application/xml")
 
 	return req, nil
 }
