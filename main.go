@@ -19,5 +19,5 @@ func New(subscriptionKey string) *Malwiya {
 }
 
 func (m *Malwiya) Translate(text, from, to string) (string, error) {
-	return translator.TranslateRequest(m.SubscriptionKey, text, from, to)
+	return translator.Translate(m.SubscriptionKey, text, from, to)
 }

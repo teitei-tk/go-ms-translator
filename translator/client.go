@@ -1,76 +1,54 @@
 package translator
 
 import (
-	"encoding/xml"
+	"context"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"net/url"
 )
 
-const (
-	OAuthFetchTokenURL        = "https://api.cognitive.microsoft.com/sts/v1.0/issueToken"
-	MicrosoftTranslatorAPIURL = "https://api.microsofttranslator.com/v2/http.svc/Translate"
-)
-
-type Response struct {
-	Content string `xml:",chardata"`
+type Client struct {
+	URL        *url.URL
+	HTTPClient *http.Client
+	Logger     *log.Logger
+	Token      string
 }
 
-func TranslateRequest(subscriptionKey, text, from, to string) (string, error) {
-	token, err := getAccessToken(subscriptionKey)
+func NewClient(rawURL string, logger *log.Logger) (*Client, error) {
+	url, err := url.ParseRequestURI(rawURL)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodGet, MicrosoftTranslatorAPIURL, nil)
-	if err != nil {
-		return "", nil
+	var discardLogger = log.New(ioutil.Discard, "", log.LstdFlags)
+	if logger == nil {
+		logger = discardLogger
 	}
 
-	v := &url.Values{}
-	v.Add("text", text)
+	c := &Client{
+		URL:        url,
+		HTTPClient: http.DefaultClient,
+		Logger:     logger,
+	}
+
+	return c, nil
+}
+
+func (c *Client) newRequest(ctx context.Context, v *url.Values, method, from, to string) (*http.Request, error) {
+	req, err := http.NewRequest(method, c.URL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
 	v.Add("from", from)
 	v.Add("to", to)
 
+	req = req.WithContext(ctx)
 	req.URL.RawQuery = v.Encode()
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.Token))
+	req.Header.Set("User-Agent", userAgent)
 
-	res, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return "", err
-	}
-	defer res.Body.Close()
-
-	decoder := xml.NewDecoder(res.Body)
-
-	response := Response{}
-	if err = decoder.Decode(&response); err != nil {
-		return "", nil
-	}
-	return response.Content, nil
-}
-
-func getAccessToken(subscriptionKey string) (string, error) {
-	req, err := http.NewRequest(http.MethodPost, OAuthFetchTokenURL, nil)
-	if err != nil {
-		return "", err
-	}
-
-	v := &url.Values{}
-	v.Add("Subscription-Key", subscriptionKey)
-	req.URL.RawQuery = v.Encode()
-
-	res, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return "", err
-	}
-	defer res.Body.Close()
-
-	body, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		return "", err
-	}
-
-	return string(body), nil
+	return req, nil
 }
