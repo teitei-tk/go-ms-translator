@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"runtime"
+	"strings"
 	"time"
 )
 
@@ -32,6 +33,8 @@ func Translate(subscriptionKey, text, from, to string) (string, error) {
 	}
 
 	token, err := getAccessToken(subscriptionKey)
+
+	fmt.Println(token)
 	if err != nil {
 		return "", err
 	}
@@ -45,7 +48,7 @@ func Translate(subscriptionKey, text, from, to string) (string, error) {
 
 	req, err := c.newRequest(ctx, v, http.MethodGet, from, to)
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 
 	res, err := c.HTTPClient.Do(req)
@@ -59,10 +62,54 @@ func Translate(subscriptionKey, text, from, to string) (string, error) {
 
 	response := Response{}
 	if err = decodeXML(res, &response); err != nil {
-		return "", nil
+		return "", err
 	}
 
 	return response.Content, nil
+}
+
+func TranslateArray(subscriptionKey string, texts []string, from, to string) ([]string, error) {
+	var result []string
+	c, err := NewClient(TranslateArrayAPIURL, nil)
+	if err != nil {
+		return result, err
+	}
+
+	token, err := getAccessToken(subscriptionKey)
+	if err != nil {
+		return result, err
+	}
+	c.Token = token
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	v := &url.Values{}
+	v.Add("texts", strings.Join(texts, " "))
+
+	req, err := c.newRequest(ctx, v, http.MethodPost, from, to)
+	if err != nil {
+		return result, err
+	}
+
+	res, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return result, err
+	}
+
+	if res.StatusCode != http.StatusOK {
+		return result, errResponse(res)
+	}
+
+	body, _ := ioutil.ReadAll(res.Body)
+	fmt.Println(string(body))
+
+	response := Response{}
+	if err = decodeXML(res, &response); err != nil {
+		return result, nil
+	}
+
+	return strings.Split(response.Content, " "), nil
 }
 
 func decodeXML(res *http.Response, out interface{}) error {
