@@ -6,6 +6,9 @@ Provide language translation operations using Microsoft translator Text API with
 go get github.com/teitei-tk/malwiya
 ```
 
+## Dependency
+* Go Version 1.7.x or later
+
 ## Usage
 ```go
 package main
