@@ -1,4 +1,4 @@
-# malwiya
+# malwiya [![Build Status](https://travis-ci.org/teitei-tk/malwiya.svg?branch=master)](https://travis-ci.org/teitei-tk/malwiya)
 Provide language translation operations using Microsoft translator Text API with Go.
 
 # Installation
@@ -36,6 +36,9 @@ func main() {
 ## TODO
 * Test code
 * Documents
+
+## Microsoft Translator Text API Reference
+* http://docs.microsofttranslator.com/text-translate.html
 
 ## LICENSE
 Apache License, Version 2.0
