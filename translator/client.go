@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"strings"
 )
 
 type Client struct {
@@ -36,21 +37,27 @@ func NewClient(rawURL string, logger *log.Logger) (*Client, error) {
 	return c, nil
 }
 
-func (c *Client) newRequest(ctx context.Context, v *url.Values, method, from, to string) (*http.Request, error) {
-	req, err := http.NewRequest(method, c.URL.String(), nil)
+func newHTTPRequest(method, url, q string) (*http.Request, error) {
+	if method == http.MethodPost {
+		return http.NewRequest(method, url, strings.NewReader(q))
+	}
+
+	req, err := http.NewRequest(method, url, nil)
+	req.URL.RawQuery = q
+	return req, err
+}
+
+func (c *Client) newRequest(ctx context.Context, q, method, from, to string) (*http.Request, error) {
+	req, err := newHTTPRequest(method, c.URL.String(), q)
 	if err != nil {
 		return nil, err
 	}
 
-	v.Add("from", from)
-	v.Add("to", to)
-
 	req = req.WithContext(ctx)
-	req.URL.RawQuery = v.Encode()
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.Token))
 	req.Header.Set("User-Agent", userAgent)
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("Accept", "application/xml")
+	//req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	//req.Header.Set("Accept", "application/xml")
 
 	return req, nil
 }

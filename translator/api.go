@@ -22,10 +22,6 @@ const (
 
 var userAgent = fmt.Sprintf("XXXGoClient/ (%s)", runtime.Version())
 
-type Response struct {
-	Content string `xml:",chardata"`
-}
-
 func Translate(subscriptionKey, text, from, to string) (string, error) {
 	c, err := NewClient(TranslateAPIURL, nil)
 	if err != nil {
@@ -33,8 +29,6 @@ func Translate(subscriptionKey, text, from, to string) (string, error) {
 	}
 
 	token, err := getAccessToken(subscriptionKey)
-
-	fmt.Println(token)
 	if err != nil {
 		return "", err
 	}
@@ -45,8 +39,10 @@ func Translate(subscriptionKey, text, from, to string) (string, error) {
 
 	v := &url.Values{}
 	v.Add("text", text)
+	v.Add("from", from)
+	v.Add("to", to)
 
-	req, err := c.newRequest(ctx, v, http.MethodGet, from, to)
+	req, err := c.newRequest(ctx, v.Encode(), http.MethodGet, from, to)
 	if err != nil {
 		return "", err
 	}
@@ -60,7 +56,11 @@ func Translate(subscriptionKey, text, from, to string) (string, error) {
 		return "", errResponse(res)
 	}
 
-	response := Response{}
+	type apiResponse struct {
+		Content string `xml:",chardata"`
+	}
+
+	response := apiResponse{}
 	if err = decodeXML(res, &response); err != nil {
 		return "", err
 	}
@@ -84,10 +84,29 @@ func TranslateArray(subscriptionKey string, texts []string, from, to string) ([]
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	v := &url.Values{}
-	v.Add("texts", strings.Join(texts, " "))
+	var reqText []string
+	for _, v := range texts {
+		s := `<string xmlns='http://schemas.microsoft.com/2003/10/Serialization/Arrays'>%s</string>`
+		reqText = append(reqText, fmt.Sprintf(s, v))
+	}
 
-	req, err := c.newRequest(ctx, v, http.MethodPost, from, to)
+	reqBody := fmt.Sprintf(`<TranslateArrayRequest>
+                <AppId />
+                <From>%s</From>
+                <Options>
+                        <Category xmlns='http://schemas.datacontract.org/2004/07/Microsoft.MT.Web.Service.V2' />
+                        <ContentType>text/plain</ContentType>
+                        <ReservedFlags xmlns='http://schemas.datacontract.org/2004/07/Microsoft.MT.Web.Service.V2' />
+                        <State xmlns='http://schemas.datacontract.org/2004/07/Microsoft.MT.Web.Service.V2' />
+                        <Uri xmlns='http://schemas.datacontract.org/2004/07/Microsoft.MT.Web.Service.V2' />
+                        <User xmlns='http://schemas.datacontract.org/2004/07/Microsoft.MT.Web.Service.V2' />
+                </Options>
+                <Texts>%s</Texts>
+                <To>%s</To>
+        </TranslateArrayRequest>`, from, strings.Join(reqText, " "), to)
+
+	req, err := c.newRequest(ctx, reqBody, http.MethodPost, from, to)
+	req.Header.Set("Content-Type", "text/xml")
 	if err != nil {
 		return result, err
 	}
@@ -97,19 +116,18 @@ func TranslateArray(subscriptionKey string, texts []string, from, to string) ([]
 		return result, err
 	}
 
-	if res.StatusCode != http.StatusOK {
-		return result, errResponse(res)
+	type apiResponse struct {
+		Content                string
+		TranslateArrayResponse struct {
+		} `xml:"ArrayOfTranslateArrayrResponse>TranslateArrayResponse"`
 	}
 
-	body, _ := ioutil.ReadAll(res.Body)
-	fmt.Println(string(body))
-
-	response := Response{}
+	response := apiResponse{}
 	if err = decodeXML(res, &response); err != nil {
-		return result, nil
+		return result, err
 	}
 
-	return strings.Split(response.Content, " "), nil
+	return []string{response.Content}, nil
 }
 
 func decodeXML(res *http.Response, out interface{}) error {
@@ -140,6 +158,7 @@ func getAccessToken(subscriptionKey string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	req.Header.Set("User-Agent", userAgent)
 
 	v := &url.Values{}
 	v.Add("Subscription-Key", subscriptionKey)
