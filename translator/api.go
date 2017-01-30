@@ -95,27 +95,7 @@ func TranslateArray(subscriptionKey string, texts []string, from, to string) ([]
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	var reqText []string
-	for _, v := range texts {
-		s := `<string xmlns='http://schemas.microsoft.com/2003/10/Serialization/Arrays'>%s</string>`
-		reqText = append(reqText, fmt.Sprintf(s, v))
-	}
-
-	reqBody := fmt.Sprintf(`<TranslateArrayRequest>
-                <AppId />
-                <From>%s</From>
-                <Options>
-                        <Category xmlns='http://schemas.datacontract.org/2004/07/Microsoft.MT.Web.Service.V2' />
-                        <ContentType>text/plain</ContentType>
-                        <ReservedFlags xmlns='http://schemas.datacontract.org/2004/07/Microsoft.MT.Web.Service.V2' />
-                        <State xmlns='http://schemas.datacontract.org/2004/07/Microsoft.MT.Web.Service.V2' />
-                        <Uri xmlns='http://schemas.datacontract.org/2004/07/Microsoft.MT.Web.Service.V2' />
-                        <User xmlns='http://schemas.datacontract.org/2004/07/Microsoft.MT.Web.Service.V2' />
-                </Options>
-                <Texts>%s</Texts>
-                <To>%s</To>
-        </TranslateArrayRequest>`, from, strings.Join(reqText, " "), to)
-
+	reqBody := genTranslateArraayReqXML(texts, from, to)
 	req, err := c.newRequest(ctx, reqBody, http.MethodPost, from, to)
 	req.Header.Set("Content-Type", "text/xml")
 	if err != nil {
@@ -143,6 +123,29 @@ func TranslateArray(subscriptionKey string, texts []string, from, to string) ([]
 	}
 
 	return result, nil
+}
+
+func genTranslateArraayReqXML(texts []string, from, to string) string {
+	var reqText []string
+	for _, v := range texts {
+		s := `<string xmlns='http://schemas.microsoft.com/2003/10/Serialization/Arrays'>%s</string>`
+		reqText = append(reqText, fmt.Sprintf(s, v))
+	}
+
+	return fmt.Sprintf(`<TranslateArrayRequest>
+                <AppId />
+                <From>%s</From>
+                <Options>
+                        <Category xmlns='http://schemas.datacontract.org/2004/07/Microsoft.MT.Web.Service.V2' />
+                        <ContentType>text/plain</ContentType>
+                        <ReservedFlags xmlns='http://schemas.datacontract.org/2004/07/Microsoft.MT.Web.Service.V2' />
+                        <State xmlns='http://schemas.datacontract.org/2004/07/Microsoft.MT.Web.Service.V2' />
+                        <Uri xmlns='http://schemas.datacontract.org/2004/07/Microsoft.MT.Web.Service.V2' />
+                        <User xmlns='http://schemas.datacontract.org/2004/07/Microsoft.MT.Web.Service.V2' />
+                </Options>
+                <Texts>%s</Texts>
+                <To>%s</To>
+        </TranslateArrayRequest>`, from, strings.Join(reqText, " "), to)
 }
 
 func decodeXML(res *http.Response, out interface{}) error {
