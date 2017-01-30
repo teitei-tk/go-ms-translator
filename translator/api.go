@@ -22,6 +22,17 @@ const (
 
 var userAgent = fmt.Sprintf("XXXGoClient/ (%s)", runtime.Version())
 
+type (
+	TranslateArrayResponse struct {
+		From           string
+		TranslatedText string
+	}
+
+	ArrayOfTranslateArrayResponse struct {
+		TranslateArrayResponse []TranslateArrayResponse
+	}
+)
+
 func Translate(subscriptionKey, text, from, to string) (string, error) {
 	c, err := NewClient(TranslateAPIURL, nil)
 	if err != nil {
@@ -115,19 +126,23 @@ func TranslateArray(subscriptionKey string, texts []string, from, to string) ([]
 	if err != nil {
 		return result, err
 	}
+	defer res.Body.Close()
 
-	type apiResponse struct {
-		Content                string
-		TranslateArrayResponse struct {
-		} `xml:"ArrayOfTranslateArrayrResponse>TranslateArrayResponse"`
-	}
-
-	response := apiResponse{}
-	if err = decodeXML(res, &response); err != nil {
+	b, err := ioutil.ReadAll(res.Body)
+	if err != nil {
 		return result, err
 	}
 
-	return []string{response.Content}, nil
+	response := ArrayOfTranslateArrayResponse{}
+	if err = xml.Unmarshal(b, &response); err != nil {
+		return result, err
+	}
+
+	for _, v := range response.TranslateArrayResponse {
+		result = append(result, v.TranslatedText)
+	}
+
+	return result, nil
 }
 
 func decodeXML(res *http.Response, out interface{}) error {

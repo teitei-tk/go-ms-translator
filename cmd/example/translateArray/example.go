@@ -9,7 +9,8 @@ import (
 
 func main() {
 	m := malwiya.New(os.Getenv("SUBSCRIPTION_KEY"))
-	r, err := m.TrasnlateArray([]string{"I", "love", "you"}, "en", "ja")
+
+	r, err := m.TrasnlateArray([]string{"I", "love", "gopher"}, "en", "ja")
 	if err != nil {
 		panic(err)
 	}
