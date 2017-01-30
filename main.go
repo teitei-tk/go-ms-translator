@@ -19,10 +19,10 @@ func New(subscriptionKey string) *Malwiya {
 	return m
 }
 
-func (m *Malwiya) Translate(text, from, to string) (string, error) {
+func (m *Malwiya) Translate(text, from, to string) (*translator.TranslateResponse, error) {
 	return translator.Translate(m.SubscriptionKey, text, from, to)
 }
 
-func (m *Malwiya) TrasnlateArray(texts []string, from, to string) ([]string, error) {
+func (m *Malwiya) TrasnlateArray(texts []string, from, to string) (*translator.ArrayOfTranslateArrayResponse, error) {
 	return translator.TranslateArray(m.SubscriptionKey, texts, from, to)
 }
