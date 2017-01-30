@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"runtime"
+	"strings"
 	"time"
 )
 
@@ -21,9 +22,16 @@ const (
 
 var userAgent = fmt.Sprintf("XXXGoClient/ (%s)", runtime.Version())
 
-type Response struct {
-	Content string `xml:",chardata"`
-}
+type (
+	TranslateArrayResponse struct {
+		From           string
+		TranslatedText string
+	}
+
+	ArrayOfTranslateArrayResponse struct {
+		TranslateArrayResponse []TranslateArrayResponse
+	}
+)
 
 func Translate(subscriptionKey, text, from, to string) (string, error) {
 	c, err := NewClient(TranslateAPIURL, nil)
@@ -42,10 +50,12 @@ func Translate(subscriptionKey, text, from, to string) (string, error) {
 
 	v := &url.Values{}
 	v.Add("text", text)
+	v.Add("from", from)
+	v.Add("to", to)
 
-	req, err := c.newRequest(ctx, v, http.MethodGet, from, to)
+	req, err := c.newRequest(ctx, v.Encode(), http.MethodGet, from, to)
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 
 	res, err := c.HTTPClient.Do(req)
@@ -57,12 +67,85 @@ func Translate(subscriptionKey, text, from, to string) (string, error) {
 		return "", errResponse(res)
 	}
 
-	response := Response{}
+	type apiResponse struct {
+		Content string `xml:",chardata"`
+	}
+
+	response := apiResponse{}
 	if err = decodeXML(res, &response); err != nil {
-		return "", nil
+		return "", err
 	}
 
 	return response.Content, nil
+}
+
+func TranslateArray(subscriptionKey string, texts []string, from, to string) ([]string, error) {
+	var result []string
+	c, err := NewClient(TranslateArrayAPIURL, nil)
+	if err != nil {
+		return result, err
+	}
+
+	token, err := getAccessToken(subscriptionKey)
+	if err != nil {
+		return result, err
+	}
+	c.Token = token
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	reqBody := genTranslateArraayReqXML(texts, from, to)
+	req, err := c.newRequest(ctx, reqBody, http.MethodPost, from, to)
+	req.Header.Set("Content-Type", "text/xml")
+	if err != nil {
+		return result, err
+	}
+
+	res, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return result, err
+	}
+	defer res.Body.Close()
+
+	b, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return result, err
+	}
+
+	response := ArrayOfTranslateArrayResponse{}
+	if err = xml.Unmarshal(b, &response); err != nil {
+		return result, err
+	}
+
+	for _, v := range response.TranslateArrayResponse {
+		result = append(result, v.TranslatedText)
+	}
+
+	return result, nil
+}
+
+func genTranslateArraayReqXML(texts []string, from, to string) string {
+	var reqText []string
+	for _, v := range texts {
+		s := `<string xmlns='http://schemas.microsoft.com/2003/10/Serialization/Arrays'>%s</string>`
+		reqText = append(reqText, fmt.Sprintf(s, v))
+	}
+
+	return fmt.Sprintf(`<TranslateArrayRequest>
+                <AppId />
+                <From>%s</From>
+                <Options>
+                        <Category xmlns='http://schemas.datacontract.org/2004/07/Microsoft.MT.Web.Service.V2' />
+                        <ContentType>text/plain</ContentType>
+                        <ReservedFlags xmlns='http://schemas.datacontract.org/2004/07/Microsoft.MT.Web.Service.V2' />
+                        <State xmlns='http://schemas.datacontract.org/2004/07/Microsoft.MT.Web.Service.V2' />
+                        <Uri xmlns='http://schemas.datacontract.org/2004/07/Microsoft.MT.Web.Service.V2' />
+                        <User xmlns='http://schemas.datacontract.org/2004/07/Microsoft.MT.Web.Service.V2' />
+                </Options>
+                <Texts>%s</Texts>
+                <To>%s</To>
+        </TranslateArrayRequest>`, from, strings.Join(reqText, " "), to)
 }
 
 func decodeXML(res *http.Response, out interface{}) error {
@@ -93,6 +176,7 @@ func getAccessToken(subscriptionKey string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	req.Header.Set("User-Agent", userAgent)
 
 	v := &url.Values{}
 	v.Add("Subscription-Key", subscriptionKey)
